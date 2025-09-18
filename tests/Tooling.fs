@@ -15,6 +15,7 @@ open Newtonsoft.Json.Linq
 open Ionide.LanguageServerProtocol.Types
 open Ionide.LanguageServerProtocol.Server
 open System.Text.RegularExpressions
+open FsUnit
 
 let indexJToken (name: string) (jobj: option<JToken>) : option<JToken> =
     jobj |> Option.bind (fun p -> p[name] |> Option.ofObj)
@@ -99,7 +100,7 @@ let makeServerProcessInfo projectTempDir =
         | PlatformID.Win32NT -> baseServerFileName + ".exe"
         | _ -> baseServerFileName
 
-    Assert.IsTrue(File.Exists(serverFileName))
+    File.Exists(serverFileName) |> should be True
 
     let processStartInfo = new ProcessStartInfo()
     processStartInfo.FileName <- serverFileName
@@ -855,8 +856,7 @@ let setupServerClient (clientProfile: ClientProfile) (testDataDirName: string) =
 
     new ClientController(clientActor, actualTestDataDirName)
 
-
 module TextEdit =
     let normalizeNewText (s: TextEdit) =
         { s with
-            NewText = s.NewText.ReplaceLineEndings("\n") }
+            NewText = s.NewText.ReplaceLineEndings() }

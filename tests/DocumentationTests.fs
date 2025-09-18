@@ -5,6 +5,7 @@ open System
 open NUnit.Framework
 
 open CSharpLanguageServer.DocumentationUtil
+open FsUnit
 
 [<TestCase("", "")>]
 [<TestCase("<summary>doc string</summary>", "doc string")>]
@@ -140,4 +141,4 @@ Exceptions:
 - ``(unspecified)``: https://aka.ms/cosmosdb-dot-net-exceptions#typed-api""")>]
 let testFormatDocXml (inputXml, expectedMD: string) =
     let resultMd = String.Join("\n", formatDocXml inputXml)
-    Assert.AreEqual(expectedMD.Replace("\r\n", "\n"), resultMd)
+    resultMd |> should equal (expectedMD.Replace("\r\n", "\n"))

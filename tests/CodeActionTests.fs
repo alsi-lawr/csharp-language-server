@@ -3,6 +3,7 @@ namespace CSharpLanguageServer.Tests
 open NUnit.Framework
 open Ionide.LanguageServerProtocol.Types
 open CSharpLanguageServer.Tests.Tooling
+open FsUnit
 
 [<TestFixture>]
 type CodeActionTests() =
@@ -15,7 +16,7 @@ type CodeActionTests() =
 
     [<Test>]
     member _.``code action menu appears on request``() =
-        use classFile = client.Open("Project/Class.cs")
+        use classFile = client.Open "Project/Class.cs"
 
         let caParams: CodeActionParams =
             { TextDocument = { Uri = classFile.Uri }
@@ -33,11 +34,11 @@ type CodeActionTests() =
             client.Request("textDocument/codeAction", caParams)
 
         let assertCodeActionHasTitle (ca: CodeAction, title: string) =
-            Assert.AreEqual(title, ca.Title)
-            Assert.AreEqual(None, ca.Kind)
-            Assert.AreEqual(None, ca.Diagnostics)
-            Assert.AreEqual(None, ca.Disabled)
-            Assert.IsTrue(ca.Edit.IsSome)
+            ca.Title |> should equal title
+            ca.Kind |> should equal None
+            ca.Diagnostics |> should equal None
+            ca.Disabled |> should equal None
+            ca.Edit.IsSome |> should be True
 
         match caResult with
         | Some [| U2.C2 generateOverrides
@@ -55,7 +56,7 @@ type CodeActionTests() =
 
     [<Test>]
     member _.``extract base class request extracts base class``() =
-        use classFile = client.Open("Project/Class.cs")
+        use classFile = client.Open "Project/Class.cs"
 
         let caParams0: CodeActionParams =
             { TextDocument = { Uri = classFile.Uri }
@@ -73,14 +74,14 @@ type CodeActionTests() =
             client.Request("textDocument/codeAction", caParams0)
 
         match caResult with
-        | Some [| U2.C2 x |] -> Assert.AreEqual("Extract base class...", x.Title)
+        | Some [| U2.C2 x |] -> x.Title |> should equal "Extract base class..."
         // TODO: match extract base class edit structure
 
         | _ -> failwith "Some [| U2.C2 x |] was expected"
 
     [<Test>]
     member _.``extract interface code action should extract an interface``() =
-        use classFile = client.Open("Project/Class.cs")
+        use classFile = client.Open "Project/Class.cs"
 
         let caArgs: CodeActionParams =
             { TextDocument = { Uri = classFile.Uri }
@@ -102,7 +103,7 @@ type CodeActionTests() =
         let codeAction =
             match caOptions |> Option.bind (Array.tryItem 1) with
             | Some(U2.C2 ca) ->
-                Assert.AreEqual("Extract interface...", ca.Title)
+                ca.Title |> should equal "Extract interface..."
                 ca
             | _ -> failwith "Extract interface action not found"
 
@@ -119,12 +120,16 @@ type CodeActionTests() =
               NewText = "internal interface IClass\n{\n    void Method(string arg);\n}" }
 
         match codeAction.Edit with
-        | Some { DocumentChanges = Some [| U4.C1 create; U4.C1 implement |] } ->
+        | Some { DocumentChanges = Some [| C1 create; C1 implement |] } ->
             match create.Edits, implement.Edits with
             | [| U2.C1 createEdits |], [| U2.C1 implementEdits |] ->
-                Assert.AreEqual(expectedCreateInterfaceEdits, createEdits |> TextEdit.normalizeNewText)
+                createEdits
+                |> TextEdit.normalizeNewText
+                |> should equal expectedCreateInterfaceEdits
 
-                Assert.AreEqual(expectedImplementInterfaceEdits, implementEdits |> TextEdit.normalizeNewText)
+                implementEdits
+                |> TextEdit.normalizeNewText
+                |> should equal expectedImplementInterfaceEdits
 
             | _ -> failwith "Expected exactly one U2.C1 edit in both create/implement"
 

@@ -4,6 +4,7 @@ open NUnit.Framework
 open Ionide.LanguageServerProtocol.Types
 
 open CSharpLanguageServer.Tests.Tooling
+open FsUnit
 
 [<TestCase("TestData/testReferenceWorksDotnet9")>]
 [<TestCase("TestData/testReferenceWorksDotnet8")>]
@@ -26,7 +27,7 @@ let testReferenceWorks (testDataDir: string) =
     let locations0: Location[] option =
         client.Request("textDocument/references", referenceParams0)
 
-    Assert.IsTrue(locations0.IsNone)
+    locations0.IsNone |> should be True
 
     //
     // try references request at MethodA declaration on line 2
@@ -47,7 +48,7 @@ let testReferenceWorks (testDataDir: string) =
                { Start = { Line = 8u; Character = 8u }
                  End = { Line = 8u; Character = 15u } } } |]
 
-    Assert.AreEqual(expectedLocations1, locations1.Value)
+    locations1.Value |> should equal expectedLocations1
 
     //
     // try references request at MethodA declaration on line 2
@@ -74,7 +75,7 @@ let testReferenceWorks (testDataDir: string) =
                { Start = { Line = 8u; Character = 8u }
                  End = { Line = 8u; Character = 15u } } } |]
 
-    Assert.AreEqual(expectedLocations2, locations2.Value)
+    locations2.Value |> should equal expectedLocations2
 
 [<TestCase>]
 [<Ignore("Appears to be flaky")>]
@@ -98,8 +99,8 @@ let testReferenceWorksToAspNetRazorPageReferencedValue () =
     let locations0: Location[] option =
         client.Request("textDocument/references", referenceParams0)
 
-    Assert.IsTrue(locations0.IsSome)
-    Assert.AreEqual(2, locations0.Value.Length)
+    locations0.IsSome |> should be True
+    locations0.Value.Length |> should equal 2
 
     let expectedLocations0: Location array =
         [| { Uri = testControllerCsFile.Uri
@@ -112,7 +113,7 @@ let testReferenceWorksToAspNetRazorPageReferencedValue () =
                { Start = { Line = 1u; Character = 7u }
                  End = { Line = 1u; Character = 13u } } } |]
 
-    Assert.AreEqual(expectedLocations0, locations0.Value)
+    locations0.Value |> should equal expectedLocations0
 
     //
     // do same but with IncludeDeclaration=true
@@ -127,8 +128,8 @@ let testReferenceWorksToAspNetRazorPageReferencedValue () =
     let locations1: Location[] option =
         client.Request("textDocument/references", referenceParams1)
 
-    Assert.IsTrue(locations1.IsSome)
-    Assert.AreEqual(5, locations1.Value.Length)
+    locations1.IsSome |> should be True
+    locations1.Value.Length |> should equal 5
 
     let expectedLocations1: Location array =
         [| { Uri = viewsTestIndexCshtmlFile.Uri
@@ -160,4 +161,4 @@ let testReferenceWorksToAspNetRazorPageReferencedValue () =
         locations1.Value
         |> Array.sortBy (fun f -> (f.Range.Start.Line, f.Range.Start.Character))
 
-    Assert.AreEqual(expectedLocations1, sortedLocations1)
+    sortedLocations1 |> should equal expectedLocations1

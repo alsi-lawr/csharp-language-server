@@ -5,6 +5,7 @@ open NUnit.Framework
 open Ionide.LanguageServerProtocol.Types
 
 open CSharpLanguageServer.Tests.Tooling
+open FsUnit
 
 type DecodedToken =
     { Line: uint
@@ -79,11 +80,11 @@ let testSemanticTokens () =
             | U2.C1 c1 -> Some c1
             | _ -> None)
 
-    Assert.IsTrue semanticTokensOptions.IsSome
+    semanticTokensOptions.IsSome |> should be True
 
     let legend = semanticTokensOptions.Value.Legend
-    Assert.AreEqual([| "static" |], legend.TokenModifiers)
-    Assert.AreEqual(18, legend.TokenTypes.Length)
+    legend.TokenModifiers |> should equal [| "static" |]
+    legend.TokenTypes.Length |> should equal 18
 
     // Make sure the server exposes the capability.
     let haveFullSemanticTokenCapability =
@@ -95,7 +96,7 @@ let testSemanticTokens () =
             | _ -> None)
         |> Option.defaultValue false
 
-    Assert.IsTrue haveFullSemanticTokenCapability
+    haveFullSemanticTokenCapability |> should be True
 
     use file = client.Open "Project/Program.cs"
 
@@ -107,10 +108,10 @@ let testSemanticTokens () =
     let semanticToken: SemanticTokens =
         client.Request("textDocument/semanticTokens/full", semanticTokenParams)
 
-    Assert.IsTrue(semanticToken.ResultId.IsNone)
+    semanticToken.ResultId.IsNone |> should be True
 
     let tokens = semanticToken |> (decodeSemanticToken legend)
-    Assert.AreEqual(123, tokens.Length)
+    tokens.Length |> should equal 123
 
     Assert.AreEqual(
         [| { Line = 0u
@@ -186,11 +187,10 @@ let testSemanticTokensWithMultiLineLiteral () =
         client.Request("textDocument/semanticTokens/full", semanticTokenParams)
 
     // Test if anything is out-of-bound (that might indicates an underflow)
-    Assert.IsFalse(
-        semanticToken.Data
-        |> Array.chunkBySize 5
-        |> Array.fold (fun st -> fun datum -> st || datum[2] > uint32 len) false
-    )
+    semanticToken.Data
+    |> Array.chunkBySize 5
+    |> Array.fold (fun st -> fun datum -> st || datum[2] > uint32 len) false
+    |> should be False
 
     let extraLF = uint (Environment.NewLine.Length - 1)
 
@@ -227,4 +227,4 @@ let testSemanticTokensWithMultiLineLiteral () =
              TokenModifiers = [||] } |]
 
     let tokens = semanticToken |> (decodeSemanticToken legend)
-    Assert.AreEqual(expectedTokens, tokens)
+    tokens |> should equal expectedTokens

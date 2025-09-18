@@ -4,6 +4,7 @@ open System
 open NUnit.Framework
 
 open CSharpLanguageServer.RoslynHelpers
+open FsUnit
 
 [<TestCase("1.csproj:net8.0", "net8.0")>]
 [<TestCase("1.csproj:net8.0,net10.0", "net10.0")>]
@@ -35,10 +36,12 @@ let testApplyWorkspaceTargetFrameworkProp (tfmList: string, expectedTfm: string 
 
     let props = Map.empty |> applyWorkspaceTargetFrameworkProp tfmsPerProject
 
-    Assert.AreEqual(expectedTfm |> Option.ofObj, props |> Map.tryFind "TargetFramework")
+    props
+    |> Map.tryFind "TargetFramework"
+    |> should equal (expectedTfm |> Option.ofObj)
 
 [<TestCase>]
 let testApplyWorkspaceTargetFrameworkPropWithEmptyMap () =
     let props = Map.empty |> applyWorkspaceTargetFrameworkProp Map.empty
 
-    Assert.AreEqual(None, props |> Map.tryFind "TargetFramework")
+    props |> Map.tryFind "TargetFramework" |> should equal None
