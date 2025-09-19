@@ -9,7 +9,7 @@ open FsUnit
 [<TestFixture>]
 type DefinitionTests() =
     [<Test>]
-    member _.testDefinitionWorks() =
+    member _.``definition request provides definitions in dotnet``() =
         use client = setupServerClient defaultClientProfile "TestData/testDefinitionWorks"
         client.StartAndWaitForSolutionLoad()
 
@@ -48,7 +48,7 @@ type DefinitionTests() =
 
 
     [<Test>]
-    member _.testDefinitionWorksInAspNetProject() =
+    member _.``definition request provides definitions in aspnet``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testDefinitionWorksInAspNetProject"
 

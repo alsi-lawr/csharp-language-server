@@ -71,7 +71,7 @@ type SemanticTokenTests() =
 
 
     [<Test>]
-    member _.testSemanticTokens() =
+    member _.``semantic tokens request should provide full semantic tokens list``() =
         use client = setupServerClient defaultClientProfile "TestData/testSemanticTokens"
         client.StartAndWaitForSolutionLoad()
 
@@ -163,7 +163,8 @@ type SemanticTokenTests() =
 
 
     [<Test>]
-    member _.testSemanticTokensWithMultiLineLiteral() =
+    member _.``semantic tokens request should provide full semantic tokens list with multi line literal``() =
+
         use client =
             setupServerClient defaultClientProfile "TestData/testSemanticTokensWithMultiLineLiteral"
 

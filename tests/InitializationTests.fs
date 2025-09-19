@@ -29,7 +29,7 @@ type InitializationTests() =
 
 
     [<Test>]
-    member _.testServerRegistersCapabilitiesWithTheClient() =
+    member _.``server registers capabilities with the client``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testServerRegistersCapabilitiesWithTheClient"
 
@@ -144,7 +144,7 @@ type InitializationTests() =
 
 
     [<Test>]
-    member _.testSlnxSolutionFileWillBeFoundAndLoaded() =
+    member _.``language server supports slnx solution format``() =
         use client = setupServerClient defaultClientProfile "TestData/testSlnx"
         client.StartAndWaitForSolutionLoad()
 
@@ -162,7 +162,7 @@ type InitializationTests() =
 
 
     [<Test>]
-    member _.testMultiTargetProjectLoads() =
+    member _.``server supports multi-tfm projects``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testMultiTargetProjectLoads"
 

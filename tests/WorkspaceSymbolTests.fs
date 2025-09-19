@@ -10,7 +10,7 @@ open FsUnit
 type WorkspaceSymbolTests() =
 
     [<Test>]
-    member _.testWorkspaceSymbolWorks() =
+    member _.``workspace symbol request should provide symbols``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testWorkspaceSymbolWorks"
 

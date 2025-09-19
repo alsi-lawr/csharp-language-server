@@ -12,7 +12,7 @@ open FsUnit
 type DocumentFormattingTests() =
 
     [<Test>]
-    member _.testEditorConfigFormatting() =
+    member _.``document formatting should respect editorconfig``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testEditorConfigFormatting"
 
@@ -39,5 +39,5 @@ type DocumentFormattingTests() =
                 File.ReadAllText(Path.Combine(client.ProjectDir, "Project", "ExpectedFormatting.cs.txt"))
 
             (classFile.GetFileContentsWithTextEditsApplied tes).ReplaceLineEndings("\n")
-                |> should equal expectedClassContents
-        | None -> failwith "Some TextEdit's were expected"
+            |> should equal expectedClassContents
+        | None -> failwith "Some TextEdits were expected"

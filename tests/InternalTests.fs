@@ -19,7 +19,9 @@ type InternalTests() =
     [<TestCase("1.csproj:net8.0,net10.0 2.csproj:netstandard2.0,net462", null)>]
     [<TestCase("1.csproj:net8.0,net10.0 2.csproj:net8.0,net10.0", "net10.0")>]
     [<TestCase("1.csproj:net8.0 2.csproj:net8.0,net10.0", "net8.0")>]
-    member _.testApplyWorkspaceTargetFrameworkProp(tfmList: string, expectedTfm: string | null) =
+    member _.``applying workspace tfm props should identify all tfm props``
+        (tfmList: string, expectedTfm: string | null)
+        =
 
         let parseTfmList (projectEntry: string) : string * list<string> =
             let parts = projectEntry.Split(':')
@@ -44,7 +46,7 @@ type InternalTests() =
         |> should equal (expectedTfm |> Option.ofObj)
 
     [<Test>]
-    member _.testApplyWorkspaceTargetFrameworkPropWithEmptyMap() =
+    member _.``applying workspace with an empty tfm list should not set TargetFramework``() =
         let props = Map.empty |> applyWorkspaceTargetFrameworkProp Map.empty
 
         props |> Map.tryFind "TargetFramework" |> should equal None

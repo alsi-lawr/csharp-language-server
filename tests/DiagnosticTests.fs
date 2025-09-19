@@ -13,7 +13,7 @@ open FsUnit
 type DiagnosticTests() =
 
     [<Test>]
-    member _.testPushDiagnosticsWork() =
+    member _.``push diagnostics should provide diagnostics``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testPushDiagnosticsWork"
 

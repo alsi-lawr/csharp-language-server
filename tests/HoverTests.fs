@@ -10,7 +10,7 @@ open FsUnit
 type HoverTests() =
 
     [<Test>]
-    member _.testHoverWorks() =
+    member _.``hover request should show hover info``() =
         use client = setupServerClient defaultClientProfile "TestData/testHoverWorks"
         client.StartAndWaitForSolutionLoad()
 

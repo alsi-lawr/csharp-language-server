@@ -139,6 +139,6 @@ Returns: The ``Microsoft.Azure.Cosmos.ItemResponse`1`` that was upserted contain
 
 Exceptions:
 - ``(unspecified)``: https://aka.ms/cosmosdb-dot-net-exceptions#typed-api""")>]
-let testFormatDocXml (inputXml, expectedMD: string) =
+let ``xml docs should render as valid markdown`` (inputXml, expectedMD: string) =
     let resultMd = String.Join("\n", formatDocXml inputXml)
     resultMd |> should equal (expectedMD.Replace("\r\n", "\n"))

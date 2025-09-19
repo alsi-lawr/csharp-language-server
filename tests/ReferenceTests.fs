@@ -11,7 +11,7 @@ type ReferenceTests() =
 
     [<TestCase("TestData/testReferenceWorksDotnet9")>]
     [<TestCase("TestData/testReferenceWorksDotnet8")>]
-    member _.testReferenceWorks(testDataDir: string) =
+    member _.``get references request should provide references``(testDataDir: string) =
         use client = setupServerClient defaultClientProfile testDataDir
         client.StartAndWaitForSolutionLoad()
 
@@ -82,7 +82,7 @@ type ReferenceTests() =
 
     [<Test>]
     [<Ignore("Appears to be flaky")>]
-    member _.testReferenceWorksToAspNetRazorPageReferencedValue() =
+    member _.``reference request should provide references for aspnet``() =
         use client =
             setupServerClient defaultClientProfile "TestData/testReferenceWorksToAspNetRazorPageReferencedValue"
 
