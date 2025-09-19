@@ -79,39 +79,46 @@ let defaultClientProfile =
     { LoggingEnabled = false
       ClientCapabilities = defaultClientCapabilities }
 
-let makeServerProcessInfo projectTempDir =
-    let serverExe = Path.Combine(Environment.CurrentDirectory)
-    let tfm = Path.GetFileName(serverExe)
-    let buildMode = Path.GetFileName(Path.GetDirectoryName(serverExe))
+let makeServerProcessInfo (projectTempDir: string) : Result<ProcessStartInfo, exn> =
+    let testAssemblyDir =
+        Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
 
-    let baseDir =
-        serverExe
-        |> Path.GetDirectoryName
-        |> Path.GetDirectoryName
-        |> Path.GetDirectoryName
-        |> Path.GetDirectoryName
-        |> Path.GetDirectoryName
+    let repoRoot =
+        Path.GetFullPath(Path.Combine(testAssemblyDir, "..", "..", "..", ".."))
 
-    let baseServerFileName =
-        Path.Combine(baseDir, "src", "bin", buildMode, tfm, "CSharpLanguageServer")
+    let buildMode = Path.GetFileName(Path.GetDirectoryName(testAssemblyDir))
+    let tfm = Path.GetFileName(testAssemblyDir)
 
-    let serverFileName =
-        match Environment.OSVersion.Platform with
-        | PlatformID.Win32NT -> baseServerFileName + ".exe"
-        | _ -> baseServerFileName
+    let serverExe =
+        Path.Combine(
+            repoRoot,
+            "src",
+            "bin",
+            buildMode,
+            tfm,
+            "CSharpLanguageServer"
+            + (if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+                   ".exe"
+               else
+                   "")
+        )
 
-    File.Exists(serverFileName) |> should be True
+    if not (File.Exists serverExe) then
+        Error(Exception(sprintf "%s does not exist" serverExe))
+    else
+        Ok(
+            ProcessStartInfo()
+            |> fun p ->
+                p.FileName <- serverExe
+                p.RedirectStandardInput <- true
+                p.RedirectStandardOutput <- true
+                p.RedirectStandardError <- true
+                p.UseShellExecute <- false
+                p.CreateNoWindow <- true
+                p.WorkingDirectory <- projectTempDir
+                p
+        )
 
-    let processStartInfo = new ProcessStartInfo()
-    processStartInfo.FileName <- serverFileName
-    processStartInfo.RedirectStandardInput <- true
-    processStartInfo.RedirectStandardOutput <- true
-    processStartInfo.RedirectStandardError <- true
-    processStartInfo.UseShellExecute <- false
-    processStartInfo.CreateNoWindow <- true
-    processStartInfo.WorkingDirectory <- projectTempDir
-
-    processStartInfo
 
 
 type ClientServerRpcRequestInfo =
@@ -165,7 +172,7 @@ let defaultClientState =
 type ClientEvent =
     | SetupWithProfile of ClientProfile
     | UpdateState of (ClientState -> ClientState)
-    | ServerStartRequest of string * AsyncReplyChannel<ClientState>
+    | ServerStartRequest of string * AsyncReplyChannel<Result<ClientState, exn>>
     | ServerStopRequest of AsyncReplyChannel<unit>
     | GetState of AsyncReplyChannel<ClientState>
     | ServerStderrLineRead of string option
@@ -194,26 +201,39 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
     | UpdateState stateUpdateFn -> return stateUpdateFn (state)
 
     | ServerStartRequest(projectDir, rc) ->
-        let processStartInfo = makeServerProcessInfo projectDir
+        let makeServerProcess processStartInfo =
+            let p = new Process()
+            p.StartInfo <- processStartInfo
+            logMessage "ServerStartRequest" "StartServer: p.Start().."
+            let startResult = p.Start()
+            logMessage "ServerStartRequest" (String.Format("StartServer: p.Start(): {0}, {1}", startResult, p.Id))
 
-        let p = new Process()
-        p.StartInfo <- processStartInfo
-        logMessage "ServerStartRequest" "StartServer: p.Start().."
-        let startResult = p.Start()
-        logMessage "ServerStartRequest" (String.Format("StartServer: p.Start(): {0}, {1}", startResult, p.Id))
+            post (RpcMessageReceived(Ok None))
+            post (ServerStderrLineRead None)
 
-        post (RpcMessageReceived(Ok None))
-        post (ServerStderrLineRead None)
+            let newState =
+                { state with
+                    ProjectDir = Some projectDir
+                    ProcessStartInfo = Some processStartInfo
+                    ServerProcess = Some p }
 
-        let newState =
-            { state with
-                ProjectDir = Some projectDir
-                ProcessStartInfo = Some processStartInfo
-                ServerProcess = Some p }
+            newState
 
-        rc.Reply(newState)
+        let newStateResult =
+            makeServerProcessInfo projectDir
+            |> Result.bind (fun processStartInfo ->
+                try
+                    Ok(makeServerProcess processStartInfo)
+                with ex ->
+                    Error ex)
 
-        return newState
+        match newStateResult with
+        | Error ex ->
+            rc.Reply(Error ex)
+            return state
+        | Ok newState ->
+            rc.Reply(Ok newState)
+            return newState
 
     | ServerStopRequest rc ->
         let p = state.ServerProcess.Value
@@ -466,7 +486,6 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
 
     | SendRpcMessage rpcMsg ->
         let rpcMsgJson = string rpcMsg
-        let bytes = Encoding.UTF8.GetBytes rpcMsgJson
 
         match state.ServerProcess with
         | None ->
@@ -476,10 +495,10 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
         | Some serverProcess ->
             let serverStdin = serverProcess.StandardInput
 
-            let header = Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n")
+            let formattedMessage =
+                String.Format("Content-Length: {0}\r\n\r\n{1}", rpcMsgJson.Length, rpcMsgJson)
 
-            serverStdin.Write(header)
-            serverStdin.Write(bytes)
+            serverStdin.Write(formattedMessage)
             serverStdin.Flush()
 
             let newRpcLog =
@@ -689,7 +708,11 @@ type ClientController(client: MailboxProcessor<ClientEvent>, testDataDir: Direct
         projectDir <- Some(prepareTempTestDirFrom testDataDir)
 
         log "sending ServerStartRequest"
-        let state = client.PostAndReply(fun rc -> ServerStartRequest(projectDir.Value, rc))
+
+        let state =
+            match client.PostAndReply(fun rc -> ServerStartRequest(projectDir.Value, rc)): Result<ClientState, exn> with
+            | Ok state -> state
+            | Error error -> failwithf "ServerStartRequest has failed with %s" (string error)
 
         let initializeParams: InitializeParams =
             { RootPath = None
@@ -764,7 +787,7 @@ type ClientController(client: MailboxProcessor<ClientEvent>, testDataDir: Direct
         let _ =
             client.PostAndReply<Result<JToken, JToken>>(fun rc -> SendServerRpcRequest("shutdown", JObject(), Some rc))
 
-        client.Post(SendServerRpcNotification("exit", JObject()))
+        client.Post(SendServerRpcRequest("exit", JObject(), None))
 
     member __.Stop() =
         client.PostAndReply(fun rc -> ServerStopRequest rc)
