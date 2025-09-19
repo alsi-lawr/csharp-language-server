@@ -8,17 +8,24 @@ open FsUnit
 [<TestFixture>]
 type CodeActionTests() =
 
+    static let assertCodeActionHasTitle (ca: CodeAction, title: string) =
+            ca.Title |> should equal title
+            ca.Kind |> should equal None
+            ca.Diagnostics |> should equal None
+            ca.Disabled |> should equal None
+            ca.Edit.IsSome |> should be True
+
     static let mutable client: ClientController =
         setupServerClient defaultClientProfile "TestData/testCodeActions"
 
-    [<OneTimeSetUp>]
-    member _.Setup() = client.StartAndWaitForSolutionLoad()
+    let mutable caResults: TextDocumentCodeActionResult option = None
 
-    [<Test>]
-    member _.``code action menu appears on request``() =
+    [<OneTimeSetUp>]
+    member _.Setup() =
+        client.StartAndWaitForSolutionLoad()
         use classFile = client.Open "Project/Class.cs"
 
-        let caParams: CodeActionParams =
+        let caArgs: CodeActionParams =
             { TextDocument = { Uri = classFile.Uri }
               Range =
                 { Start = { Line = 1u; Character = 0u }
@@ -30,80 +37,53 @@ type CodeActionTests() =
               WorkDoneToken = None
               PartialResultToken = None }
 
-        let caResult: TextDocumentCodeActionResult option =
-            client.Request("textDocument/codeAction", caParams)
+        caResults <-
+            match client.Request("textDocument/codeAction", caArgs) with
+            | Some opts -> opts
+            | None -> failwith "Expected code actions, received none"
 
-        let assertCodeActionHasTitle (ca: CodeAction, title: string) =
-            ca.Title |> should equal title
-            ca.Kind |> should equal None
-            ca.Diagnostics |> should equal None
-            ca.Disabled |> should equal None
-            ca.Edit.IsSome |> should be True
+    [<Test>]
+    member _.``generate overrides action should generate overrides``() =
+        match caResults |> Option.bind (Array.tryItem 0) with
+        | Some (U2.C2 ca) ->
+            assertCodeActionHasTitle (ca, "Generate overrides...")
+            // TODO: match extract base class edit structure
 
-        match caResult with
-        | Some [| U2.C2 generateOverrides
-                  U2.C2 extractInterface
-                  U2.C2 generateConstructor
-                  U2.C2 extractBaseClass
-                  U2.C2 addDebuggerDisplay |] ->
-            assertCodeActionHasTitle (generateOverrides, "Generate overrides...")
-            assertCodeActionHasTitle (extractInterface, "Extract interface...")
-            assertCodeActionHasTitle (generateConstructor, "Generate constructor 'Class()'")
-            assertCodeActionHasTitle (extractBaseClass, "Extract base class...")
-            assertCodeActionHasTitle (addDebuggerDisplay, "Add 'DebuggerDisplay' attribute")
+        | _ -> failwith "Generate overrides code action not found"
 
-        | _ -> failwith "Not all code actions were matched as expected"
+    [<Test>]
+    member _.``generate constructor action should generate a constructor``() =
+        match caResults |> Option.bind (Array.tryItem 2) with
+        | Some (U2.C2 ca) ->
+            assertCodeActionHasTitle (ca, "Generate constructor 'Class()'")
+            // TODO: match extract base class edit structure
+
+        | _ -> failwith "Generate constructor code action not found"
+
+    [<Test>]
+    member _.``add attribute action should add the attribute``() =
+        match caResults |> Option.bind (Array.tryItem 4) with
+        | Some (U2.C2 ca) ->
+            assertCodeActionHasTitle (ca, "Add 'DebuggerDisplay' attribute")
+            // TODO: match extract base class edit structure
+
+        | _ -> failwith "Add attribute code action not found"
 
     [<Test>]
     member _.``extract base class request extracts base class``() =
-        use classFile = client.Open "Project/Class.cs"
+        match caResults |> Option.bind (Array.tryItem 3) with
+        | Some (U2.C2 ca) ->
+             assertCodeActionHasTitle (ca, "Extract base class...")
+            // TODO: match extract base class edit structure
 
-        let caParams0: CodeActionParams =
-            { TextDocument = { Uri = classFile.Uri }
-              Range =
-                { Start = { Line = 2u; Character = 16u }
-                  End = { Line = 2u; Character = 16u } }
-              Context =
-                { Diagnostics = [||]
-                  Only = None
-                  TriggerKind = None }
-              WorkDoneToken = None
-              PartialResultToken = None }
-
-        let caResult: TextDocumentCodeActionResult option =
-            client.Request("textDocument/codeAction", caParams0)
-
-        match caResult with
-        | Some [| U2.C2 x |] -> x.Title |> should equal "Extract base class..."
-        // TODO: match extract base class edit structure
-
-        | _ -> failwith "Some [| U2.C2 x |] was expected"
+        | _ -> failwith "Extract base class code action not found"
 
     [<Test>]
     member _.``extract interface code action should extract an interface``() =
-        use classFile = client.Open "Project/Class.cs"
-
-        let caArgs: CodeActionParams =
-            { TextDocument = { Uri = classFile.Uri }
-              Range =
-                { Start = { Line = 0u; Character = 0u }
-                  End = { Line = 0u; Character = 0u } }
-              Context =
-                { Diagnostics = [||]
-                  Only = Some [| "refactor.extract.interface" |]
-                  TriggerKind = Some CodeActionTriggerKind.Invoked }
-              WorkDoneToken = None
-              PartialResultToken = None }
-
-        let caOptions: TextDocumentCodeActionResult option =
-            match client.Request("textDocument/codeAction", caArgs) with
-            | Some opts -> opts
-            | None -> failwith "Expected code actions"
-
         let codeAction =
-            match caOptions |> Option.bind (Array.tryItem 1) with
+            match caResults |> Option.bind (Array.tryItem 1) with
             | Some(U2.C2 ca) ->
-                ca.Title |> should equal "Extract interface..."
+                assertCodeActionHasTitle (ca, "Extract interface...")
                 ca
             | _ -> failwith "Extract interface action not found"
 

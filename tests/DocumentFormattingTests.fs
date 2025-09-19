@@ -38,6 +38,6 @@ type DocumentFormattingTests() =
             let expectedClassContents =
                 File.ReadAllText(Path.Combine(client.ProjectDir, "Project", "ExpectedFormatting.cs.txt"))
 
-            classFile.GetFileContentsWithTextEditsApplied tes
-            |> should equal expectedClassContents
+            (classFile.GetFileContentsWithTextEditsApplied tes).ReplaceLineEndings("\n")
+                |> should equal expectedClassContents
         | None -> failwith "Some TextEdit's were expected"

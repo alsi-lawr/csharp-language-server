@@ -124,7 +124,7 @@ type InitializationTests() =
         |> should equal (true |> U2<bool, DocumentFormattingOptions>.C1 |> Some)
 
         serverCaps.ReferencesProvider
-        |> should equal (true |> U2<bool, ReferenceOptions>.C1 |> Some, serverCaps.ReferencesProvider)
+        |> should equal (true |> U2<bool, ReferenceOptions>.C1 |> Some)
 
         serverCaps.WorkspaceSymbolProvider
         |> should equal (true |> U2<bool, WorkspaceSymbolOptions>.C1 |> Some)

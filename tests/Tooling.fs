@@ -14,8 +14,6 @@ open NUnit.Framework
 open Newtonsoft.Json.Linq
 open Ionide.LanguageServerProtocol.Types
 open Ionide.LanguageServerProtocol.Server
-open System.Text.RegularExpressions
-open FsUnit
 
 let indexJToken (name: string) (jobj: option<JToken>) : option<JToken> =
     jobj |> Option.bind (fun p -> p[name] |> Option.ofObj)
@@ -120,7 +118,6 @@ let makeServerProcessInfo (projectTempDir: string) : Result<ProcessStartInfo, ex
         )
 
 
-
 type ClientServerRpcRequestInfo =
     { Method: string
       RpcRequestMsg: JObject
@@ -172,7 +169,7 @@ let defaultClientState =
 type ClientEvent =
     | SetupWithProfile of ClientProfile
     | UpdateState of (ClientState -> ClientState)
-    | ServerStartRequest of string * AsyncReplyChannel<Result<ClientState, exn>>
+    | ServerStartRequest of string * AsyncReplyChannel<Result<ClientState,exn>>
     | ServerStopRequest of AsyncReplyChannel<unit>
     | GetState of AsyncReplyChannel<ClientState>
     | ServerStderrLineRead of string option
@@ -350,9 +347,9 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
                 if rpcMsg.ContainsKey("result") || rpcMsg.ContainsKey("error") then
                     post (ServerRpcCallResultOrError rpcMsg)
                 else if rpcMsg.ContainsKey("method") then
-                    let rpcMsgId: JValue = rpcMsg["id"] :?> JValue | null
+                    let rpcMsgId: JValue = rpcMsg["id"] :?> JValue
                     let rpcMsgMethod: string = string rpcMsg["method"]
-                    let rpcMsgParams: JObject = rpcMsg["params"] :?> JObject | null
+                    let rpcMsgParams: JObject = rpcMsg["params"] :?> JObject
                     post (ClientRpcCall(rpcMsgId, rpcMsgMethod, rpcMsgParams))
                 else
                     failwith (sprintf "RpcMessageReceived: unknown json rpc msg type: %s" (string rpcMsg))
@@ -485,7 +482,7 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
         return state
 
     | SendRpcMessage rpcMsg ->
-        let rpcMsgJson = string rpcMsg
+        let rpcMsgJson = (string rpcMsg)
 
         match state.ServerProcess with
         | None ->
@@ -708,7 +705,6 @@ type ClientController(client: MailboxProcessor<ClientEvent>, testDataDir: Direct
         projectDir <- Some(prepareTempTestDirFrom testDataDir)
 
         log "sending ServerStartRequest"
-
         let state =
             match client.PostAndReply(fun rc -> ServerStartRequest(projectDir.Value, rc)): Result<ClientState, exn> with
             | Ok state -> state
@@ -883,4 +879,4 @@ let setupServerClient (clientProfile: ClientProfile) (testDataDirName: string) =
 module TextEdit =
     let normalizeNewText (s: TextEdit) =
         { s with
-            NewText = s.NewText.ReplaceLineEndings() }
+            NewText = s.NewText.ReplaceLineEndings("\n") }

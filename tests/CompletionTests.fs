@@ -8,14 +8,14 @@ open FsUnit
 
 [<TestFixture>]
 type CompletionTests() =
+    static let mutable client: ClientController =
+        setupServerClient defaultClientProfile "TestData/testCompletions"
+
+    [<OneTimeSetUp>]
+    member _.Setup() = client.StartAndWaitForSolutionLoad()
 
     [<Test>]
-    member _.testCompletionWorks() =
-        use client =
-            setupServerClient defaultClientProfile "TestData/testCompletionWorksForExtensionMethods"
-
-        client.StartAndWaitForSolutionLoad()
-
+    member _.``text document completions for class methods``() =
         // resolve provider is necessary for lsp client to resolve
         // detail and documentation props for a completion item
         let haveResolveProvider =
@@ -64,7 +64,7 @@ type CompletionTests() =
 
                 let itemResolved: CompletionItem = client.Request("completionItem/resolve", item)
 
-                itemResolved.Detail |> should equal (Some "void Class.MethodA(string arg)")
+                itemResolved.Detail |> should equal (Some "void Class2.MethodA(string arg)")
                 itemResolved.Documentation.IsSome |> should be False
 
             let getHashCodeItem = cl.Items |> Seq.tryFind (fun i -> i.Label = "GetHashCode")
@@ -103,11 +103,7 @@ type CompletionTests() =
         ()
 
     [<Test>]
-    member _.testCompletionWorksForExtensionMethods() =
-        use client =
-            setupServerClient defaultClientProfile "TestData/testCompletionWorksForExtensionMethods"
-
-        client.StartAndWaitForSolutionLoad()
+    member _.``text document completion for extension methods``() =
 
         use classFile = client.Open "Project/Class.cs"
 

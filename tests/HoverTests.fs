@@ -58,7 +58,7 @@ type HoverTests() =
             | U3.C1 c ->
                 c.Kind |> should equal MarkupKind.Markdown
 
-                c.Value.ReplaceLineEndings()
+                c.Value.ReplaceLineEndings("\n")
                 |> should equal "```csharp\nstring\n```\n\nRepresents text as a sequence of UTF-16 code units."
             | _ -> failwith "C1 was expected"
 
