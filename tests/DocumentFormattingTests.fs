@@ -1,4 +1,4 @@
-module CSharpLanguageServer.Tests.DocumentFormattingTests
+namespace CSharpLanguageServer.Tests
 
 open System.IO
 

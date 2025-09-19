@@ -1,4 +1,4 @@
-module CSharpLanguageServer.Tests.WorkspaceSymbolTests
+namespace CSharpLanguageServer.Tests
 
 open NUnit.Framework
 open Ionide.LanguageServerProtocol.Types
@@ -6,38 +6,41 @@ open Ionide.LanguageServerProtocol.Types
 open CSharpLanguageServer.Tests.Tooling
 open FsUnit
 
-[<TestCase>]
-let testWorkspaceSymbolWorks () =
-    use client =
-        setupServerClient defaultClientProfile "TestData/testWorkspaceSymbolWorks"
+[<TestFixture>]
+type WorkspaceSymbolTests() =
 
-    client.StartAndWaitForSolutionLoad()
+    [<Test>]
+    member _.testWorkspaceSymbolWorks() =
+        use client =
+            setupServerClient defaultClientProfile "TestData/testWorkspaceSymbolWorks"
 
-    let serverCaps = client.GetState().ServerCapabilities.Value
+        client.StartAndWaitForSolutionLoad()
 
-    serverCaps.WorkspaceSymbolProvider
-    |> should equal (true |> U2<bool, WorkspaceSymbolOptions>.C1 |> Some)
+        let serverCaps = client.GetState().ServerCapabilities.Value
 
-    use classFile = client.Open("Project/Class.cs")
+        serverCaps.WorkspaceSymbolProvider
+        |> should equal (true |> U2<bool, WorkspaceSymbolOptions>.C1 |> Some)
 
-    let completionParams0: WorkspaceSymbolParams =
-        { WorkDoneToken = None
-          PartialResultToken = None
-          Query = "Class" }
+        use classFile = client.Open("Project/Class.cs")
 
-    let symbols0: U2<SymbolInformation[], WorkspaceSymbol[]> option =
-        client.Request("workspace/symbol", completionParams0)
+        let completionParams0: WorkspaceSymbolParams =
+            { WorkDoneToken = None
+              PartialResultToken = None
+              Query = "Class" }
 
-    match symbols0 with
-    | Some(U2.C1 sis) ->
-        sis.Length |> should equal 1
+        let symbols0: U2<SymbolInformation[], WorkspaceSymbol[]> option =
+            client.Request("workspace/symbol", completionParams0)
 
-        let sym0 = sis[0]
-        sym0.Name |> should equal "Class"
-        sym0.Kind |> should equal SymbolKind.Class
-        sym0.Tags.IsSome |> should be False
-        sym0.ContainerName.IsSome |> should be False
-        sym0.Location.Uri |> should equal classFile.Uri
-        ()
+        match symbols0 with
+        | Some(U2.C1 sis) ->
+            sis.Length |> should equal 1
 
-    | _ -> failwith "Some U2.C1 was expected"
+            let sym0 = sis[0]
+            sym0.Name |> should equal "Class"
+            sym0.Kind |> should equal SymbolKind.Class
+            sym0.Tags.IsSome |> should be False
+            sym0.ContainerName.IsSome |> should be False
+            sym0.Location.Uri |> should equal classFile.Uri
+            ()
+
+        | _ -> failwith "Some U2.C1 was expected"

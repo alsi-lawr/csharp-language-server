@@ -1,4 +1,4 @@
-module CSharpLanguageServer.Tests.SemanticTokenTests
+namespace CSharpLanguageServer.Tests
 
 open System
 open NUnit.Framework
@@ -14,217 +14,221 @@ type DecodedToken =
       TokenType: string
       TokenModifiers: string[] }
 
-let decodeSemanticToken legend (semanticToken: SemanticTokens) : DecodedToken[] =
-    let decodeTokenWithLegend (legend: SemanticTokensLegend) (token: uint[]) : DecodedToken =
-        if token.Length <> 5 then
-            failwith "invalid size of `token`, must be 5!"
+[<TestFixture>]
+type SemanticTokenTests() =
 
-        let bitIndexes (n: int) =
-            seq {
-                let mutable x = n
-                let mutable i = 0
+    static let decodeSemanticToken legend (semanticToken: SemanticTokens) : DecodedToken[] =
+        let decodeTokenWithLegend (legend: SemanticTokensLegend) (token: uint[]) : DecodedToken =
+            if token.Length <> 5 then
+                failwith "invalid size of `token`, must be 5!"
 
-                while x <> 0 do
-                    if (x &&& 1) <> 0 then
-                        yield i
+            let bitIndexes (n: int) =
+                seq {
+                    let mutable x = n
+                    let mutable i = 0
 
-                    x <- x >>> 1
-                    i <- i + 1
-            }
-            |> Seq.toArray
+                    while x <> 0 do
+                        if (x &&& 1) <> 0 then
+                            yield i
 
-        let tokenModifiers =
-            token[4] |> int |> bitIndexes |> Array.map (fun i -> legend.TokenModifiers[i])
+                        x <- x >>> 1
+                        i <- i + 1
+                }
+                |> Seq.toArray
 
-        { Line = token[0]
-          StartChar = token[1]
-          Length = token[2]
-          TokenType = legend.TokenTypes[int token[3]]
-          TokenModifiers = tokenModifiers }
+            let tokenModifiers =
+                token[4] |> int |> bitIndexes |> Array.map (fun i -> legend.TokenModifiers[i])
 
-    let offsetMappingFn (prevTok: option<DecodedToken>) (tok: DecodedToken) =
-        let mappedTok =
-            match prevTok with
-            | None -> tok
-            | Some prevTok ->
-                match tok.Line with
-                | 0u ->
-                    { tok with
-                        Line = prevTok.Line
-                        StartChar = prevTok.StartChar + tok.StartChar }
-                | _ ->
-                    { tok with
-                        Line = prevTok.Line + tok.Line }
+            { Line = token[0]
+              StartChar = token[1]
+              Length = token[2]
+              TokenType = legend.TokenTypes[int token[3]]
+              TokenModifiers = tokenModifiers }
 
-        mappedTok, Some mappedTok
+        let offsetMappingFn (prevTok: option<DecodedToken>) (tok: DecodedToken) =
+            let mappedTok =
+                match prevTok with
+                | None -> tok
+                | Some prevTok ->
+                    match tok.Line with
+                    | 0u ->
+                        { tok with
+                            Line = prevTok.Line
+                            StartChar = prevTok.StartChar + tok.StartChar }
+                    | _ ->
+                        { tok with
+                            Line = prevTok.Line + tok.Line }
 
-    let tokens, _ =
+            mappedTok, Some mappedTok
+
+        let tokens, _ =
+            semanticToken.Data
+            |> Seq.chunkBySize 5
+            |> Seq.map (decodeTokenWithLegend legend)
+            |> Seq.mapFold offsetMappingFn None
+
+        tokens |> Array.ofSeq
+
+
+    [<Test>]
+    member _.testSemanticTokens() =
+        use client = setupServerClient defaultClientProfile "TestData/testSemanticTokens"
+        client.StartAndWaitForSolutionLoad()
+
+        let semanticTokensOptions =
+            client.GetState().ServerCapabilities
+            |> Option.bind (fun c -> c.SemanticTokensProvider)
+            |> Option.bind (fun s ->
+                match s with
+                | U2.C1 c1 -> Some c1
+                | _ -> None)
+
+        semanticTokensOptions.IsSome |> should be True
+
+        let legend = semanticTokensOptions.Value.Legend
+        legend.TokenModifiers |> should equal [| "static" |]
+        legend.TokenTypes.Length |> should equal 18
+
+        // Make sure the server exposes the capability.
+        let haveFullSemanticTokenCapability =
+            semanticTokensOptions
+            |> Option.bind (fun c1 -> c1.Full)
+            |> Option.bind (fun f ->
+                match f with
+                | U2.C1 full -> Some full
+                | _ -> None)
+            |> Option.defaultValue false
+
+        haveFullSemanticTokenCapability |> should be True
+
+        use file = client.Open "Project/Program.cs"
+
+        let semanticTokenParams: SemanticTokensParams =
+            { PartialResultToken = None
+              WorkDoneToken = None
+              TextDocument = { Uri = file.Uri } }
+
+        let semanticToken: SemanticTokens =
+            client.Request("textDocument/semanticTokens/full", semanticTokenParams)
+
+        semanticToken.ResultId.IsNone |> should be True
+
+        let tokens = semanticToken |> (decodeSemanticToken legend)
+        tokens.Length |> should equal 123
+
+        tokens
+        |> Array.take 8
+        |> should
+            equal
+            ([| { Line = 0u
+                  StartChar = 0u
+                  Length = 5u
+                  TokenType = "keyword"
+                  TokenModifiers = [||] }
+                { Line = 0u
+                  StartChar = 6u
+                  Length = 6u
+                  TokenType = "namespace"
+                  TokenModifiers = [||] }
+                { Line = 2u
+                  StartChar = 0u
+                  Length = 9u
+                  TokenType = "keyword"
+                  TokenModifiers = [||] }
+                { Line = 2u
+                  StartChar = 10u
+                  Length = 7u
+                  TokenType = "namespace"
+                  TokenModifiers = [||] }
+                { Line = 4u
+                  StartChar = 4u
+                  Length = 9u
+                  TokenType = "keyword"
+                  TokenModifiers = [||] }
+                { Line = 4u
+                  StartChar = 14u
+                  Length = 10u
+                  TokenType = "interface"
+                  TokenModifiers = [||] }
+                { Line = 6u
+                  StartChar = 8u
+                  Length = 6u
+                  TokenType = "keyword"
+                  TokenModifiers = [||] }
+                { Line = 6u
+                  StartChar = 15u
+                  Length = 11u
+                  TokenType = "method"
+                  TokenModifiers = [||] } |])
+
+
+    [<Test>]
+    member _.testSemanticTokensWithMultiLineLiteral() =
+        use client =
+            setupServerClient defaultClientProfile "TestData/testSemanticTokensWithMultiLineLiteral"
+
+        client.StartAndWaitForSolutionLoad()
+
+        let semanticTokensOptions =
+            client.GetState().ServerCapabilities
+            |> Option.bind (fun c -> c.SemanticTokensProvider)
+            |> Option.bind (fun s ->
+                match s with
+                | U2.C1 c1 -> Some c1
+                | _ -> None)
+
+        let legend = semanticTokensOptions.Value.Legend
+
+        use file = client.Open "Project/Program.cs"
+        let len = file.GetFileContents().Length
+
+        let semanticTokenParams: SemanticTokensParams =
+            { PartialResultToken = None
+              WorkDoneToken = None
+              TextDocument = { Uri = file.Uri } }
+
+        let semanticToken: SemanticTokens =
+            client.Request("textDocument/semanticTokens/full", semanticTokenParams)
+
+        // Test if anything is out-of-bound (that might indicates an underflow)
         semanticToken.Data
-        |> Seq.chunkBySize 5
-        |> Seq.map (decodeTokenWithLegend legend)
-        |> Seq.mapFold offsetMappingFn None
+        |> Array.chunkBySize 5
+        |> Array.fold (fun st -> fun datum -> st || datum[2] > uint32 len) false
+        |> should be False
 
-    tokens |> Array.ofSeq
+        let extraLF = uint (Environment.NewLine.Length - 1)
 
+        let expectedTokens =
+            [| { Line = 0u
+                 StartChar = 0u
+                 Length = 3u
+                 TokenType = "keyword"
+                 TokenModifiers = [||] }
+               { Line = 0u
+                 StartChar = 4u
+                 Length = 1u
+                 TokenType = "variable"
+                 TokenModifiers = [||] }
+               { Line = 0u
+                 StartChar = 6u
+                 Length = 1u
+                 TokenType = "operator"
+                 TokenModifiers = [||] }
+               { Line = 0u
+                 StartChar = 8u
+                 Length = 5u + extraLF
+                 TokenType = "string"
+                 TokenModifiers = [||] }
+               { Line = 1u
+                 StartChar = 0u
+                 Length = 24u + extraLF
+                 TokenType = "string"
+                 TokenModifiers = [||] }
+               { Line = 2u
+                 StartChar = 15u
+                 Length = 4u + extraLF
+                 TokenType = "string"
+                 TokenModifiers = [||] } |]
 
-[<TestCase>]
-let testSemanticTokens () =
-    use client = setupServerClient defaultClientProfile "TestData/testSemanticTokens"
-    client.StartAndWaitForSolutionLoad()
-
-    let semanticTokensOptions =
-        client.GetState().ServerCapabilities
-        |> Option.bind (fun c -> c.SemanticTokensProvider)
-        |> Option.bind (fun s ->
-            match s with
-            | U2.C1 c1 -> Some c1
-            | _ -> None)
-
-    semanticTokensOptions.IsSome |> should be True
-
-    let legend = semanticTokensOptions.Value.Legend
-    legend.TokenModifiers |> should equal [| "static" |]
-    legend.TokenTypes.Length |> should equal 18
-
-    // Make sure the server exposes the capability.
-    let haveFullSemanticTokenCapability =
-        semanticTokensOptions
-        |> Option.bind (fun c1 -> c1.Full)
-        |> Option.bind (fun f ->
-            match f with
-            | U2.C1 full -> Some full
-            | _ -> None)
-        |> Option.defaultValue false
-
-    haveFullSemanticTokenCapability |> should be True
-
-    use file = client.Open "Project/Program.cs"
-
-    let semanticTokenParams: SemanticTokensParams =
-        { PartialResultToken = None
-          WorkDoneToken = None
-          TextDocument = { Uri = file.Uri } }
-
-    let semanticToken: SemanticTokens =
-        client.Request("textDocument/semanticTokens/full", semanticTokenParams)
-
-    semanticToken.ResultId.IsNone |> should be True
-
-    let tokens = semanticToken |> (decodeSemanticToken legend)
-    tokens.Length |> should equal 123
-
-    Assert.AreEqual(
-        [| { Line = 0u
-             StartChar = 0u
-             Length = 5u
-             TokenType = "keyword"
-             TokenModifiers = [||] }
-           { Line = 0u
-             StartChar = 6u
-             Length = 6u
-             TokenType = "namespace"
-             TokenModifiers = [||] }
-           { Line = 2u
-             StartChar = 0u
-             Length = 9u
-             TokenType = "keyword"
-             TokenModifiers = [||] }
-           { Line = 2u
-             StartChar = 10u
-             Length = 7u
-             TokenType = "namespace"
-             TokenModifiers = [||] }
-           { Line = 4u
-             StartChar = 4u
-             Length = 9u
-             TokenType = "keyword"
-             TokenModifiers = [||] }
-           { Line = 4u
-             StartChar = 14u
-             Length = 10u
-             TokenType = "interface"
-             TokenModifiers = [||] }
-           { Line = 6u
-             StartChar = 8u
-             Length = 6u
-             TokenType = "keyword"
-             TokenModifiers = [||] }
-           { Line = 6u
-             StartChar = 15u
-             Length = 11u
-             TokenType = "method"
-             TokenModifiers = [||] } |],
-        tokens |> Array.take 8
-    )
-
-
-[<TestCase>]
-let testSemanticTokensWithMultiLineLiteral () =
-    use client =
-        setupServerClient defaultClientProfile "TestData/testSemanticTokensWithMultiLineLiteral"
-
-    client.StartAndWaitForSolutionLoad()
-
-    let semanticTokensOptions =
-        client.GetState().ServerCapabilities
-        |> Option.bind (fun c -> c.SemanticTokensProvider)
-        |> Option.bind (fun s ->
-            match s with
-            | U2.C1 c1 -> Some c1
-            | _ -> None)
-
-    let legend = semanticTokensOptions.Value.Legend
-
-    use file = client.Open "Project/Program.cs"
-    let len = file.GetFileContents().Length
-
-    let semanticTokenParams: SemanticTokensParams =
-        { PartialResultToken = None
-          WorkDoneToken = None
-          TextDocument = { Uri = file.Uri } }
-
-    let semanticToken: SemanticTokens =
-        client.Request("textDocument/semanticTokens/full", semanticTokenParams)
-
-    // Test if anything is out-of-bound (that might indicates an underflow)
-    semanticToken.Data
-    |> Array.chunkBySize 5
-    |> Array.fold (fun st -> fun datum -> st || datum[2] > uint32 len) false
-    |> should be False
-
-    let extraLF = uint (Environment.NewLine.Length - 1)
-
-    let expectedTokens =
-        [| { Line = 0u
-             StartChar = 0u
-             Length = 3u
-             TokenType = "keyword"
-             TokenModifiers = [||] }
-           { Line = 0u
-             StartChar = 4u
-             Length = 1u
-             TokenType = "variable"
-             TokenModifiers = [||] }
-           { Line = 0u
-             StartChar = 6u
-             Length = 1u
-             TokenType = "operator"
-             TokenModifiers = [||] }
-           { Line = 0u
-             StartChar = 8u
-             Length = 5u + extraLF
-             TokenType = "string"
-             TokenModifiers = [||] }
-           { Line = 1u
-             StartChar = 0u
-             Length = 24u + extraLF
-             TokenType = "string"
-             TokenModifiers = [||] }
-           { Line = 2u
-             StartChar = 15u
-             Length = 4u + extraLF
-             TokenType = "string"
-             TokenModifiers = [||] } |]
-
-    let tokens = semanticToken |> (decodeSemanticToken legend)
-    tokens |> should equal expectedTokens
+        let tokens = semanticToken |> (decodeSemanticToken legend)
+        tokens |> should equal expectedTokens

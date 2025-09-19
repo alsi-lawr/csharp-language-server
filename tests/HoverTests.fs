@@ -9,7 +9,7 @@ open FsUnit
 [<TestFixture>]
 type HoverTests() =
 
-    [<TestCase>]
+    [<Test>]
     member _.testHoverWorks() =
         use client = setupServerClient defaultClientProfile "TestData/testHoverWorks"
         client.StartAndWaitForSolutionLoad()

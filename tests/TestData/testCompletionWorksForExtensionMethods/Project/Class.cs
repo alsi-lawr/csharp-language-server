@@ -1,3 +1,11 @@
+class Class2
+{
+    public void MethodA(string arg)
+    {
+        this.
+    }
+}
+
 class Class
 {
     public void MethodA(string arg)

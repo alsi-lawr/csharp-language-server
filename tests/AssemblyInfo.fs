@@ -2,5 +2,5 @@ module AssemblyInfo
 
 open NUnit.Framework
 
-[<assembly: Parallelizable(ParallelScope.All)>]
+[<assembly: Parallelizable(ParallelScope.Fixtures)>]
 do ()

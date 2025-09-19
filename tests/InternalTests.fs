@@ -1,4 +1,4 @@
-module CSharpLanguageServer.Tests.InternalTests
+namespace CSharpLanguageServer.Tests
 
 open System
 open NUnit.Framework
@@ -6,42 +6,45 @@ open NUnit.Framework
 open CSharpLanguageServer.RoslynHelpers
 open FsUnit
 
-[<TestCase("1.csproj:net8.0", "net8.0")>]
-[<TestCase("1.csproj:net8.0,net10.0", "net10.0")>]
-[<TestCase("1.csproj:net8.0,netstandard2.0", "net8.0")>]
-[<TestCase("1.csproj:netstandard1.0,netstandard2.0", "netstandard2.0")>]
-[<TestCase("1.csproj:net40,net462,net6.0,net8.0,netcoreapp3.1,netstandard2.0", "net8.0")>]
-[<TestCase("1.csproj:net40,net462", "net462")>]
-[<TestCase("1.csproj:net8.0 2.csproj:net8.0", "net8.0")>]
-[<TestCase("1.csproj:net8.0,net10.0 2.csproj:netstandard2.0,net462", null)>]
-[<TestCase("1.csproj:net8.0,net10.0 2.csproj:net8.0,net10.0", "net10.0")>]
-[<TestCase("1.csproj:net8.0 2.csproj:net8.0,net10.0", "net8.0")>]
-let testApplyWorkspaceTargetFrameworkProp (tfmList: string, expectedTfm: string | null) =
+[<TestFixture>]
+type InternalTests() =
 
-    let parseTfmList (projectEntry: string) : string * list<string> =
-        let parts = projectEntry.Split(':')
+    [<TestCase("1.csproj:net8.0", "net8.0")>]
+    [<TestCase("1.csproj:net8.0,net10.0", "net10.0")>]
+    [<TestCase("1.csproj:net8.0,netstandard2.0", "net8.0")>]
+    [<TestCase("1.csproj:netstandard1.0,netstandard2.0", "netstandard2.0")>]
+    [<TestCase("1.csproj:net40,net462,net6.0,net8.0,netcoreapp3.1,netstandard2.0", "net8.0")>]
+    [<TestCase("1.csproj:net40,net462", "net462")>]
+    [<TestCase("1.csproj:net8.0 2.csproj:net8.0", "net8.0")>]
+    [<TestCase("1.csproj:net8.0,net10.0 2.csproj:netstandard2.0,net462", null)>]
+    [<TestCase("1.csproj:net8.0,net10.0 2.csproj:net8.0,net10.0", "net10.0")>]
+    [<TestCase("1.csproj:net8.0 2.csproj:net8.0,net10.0", "net8.0")>]
+    member _.testApplyWorkspaceTargetFrameworkProp(tfmList: string, expectedTfm: string | null) =
 
-        if parts.Length <> 2 then
-            failwithf "Invalid project entry format: '%s'. Expected 'ProjectName:tfm1,tfm2,...'" projectEntry
+        let parseTfmList (projectEntry: string) : string * list<string> =
+            let parts = projectEntry.Split(':')
 
-        let projectName = parts.[0]
-        let tfmStrings = parts.[1].Split(',') |> List.ofSeq
-        (projectName, tfmStrings)
+            if parts.Length <> 2 then
+                failwithf "Invalid project entry format: '%s'. Expected 'ProjectName:tfm1,tfm2,...'" projectEntry
 
-    let tfmsPerProject: Map<string, list<string>> =
-        tfmList
-        |> _.Split([| ' ' |], StringSplitOptions.RemoveEmptyEntries)
-        |> Array.map parseTfmList
-        |> Map.ofArray
+            let projectName = parts.[0]
+            let tfmStrings = parts.[1].Split(',') |> List.ofSeq
+            (projectName, tfmStrings)
 
-    let props = Map.empty |> applyWorkspaceTargetFrameworkProp tfmsPerProject
+        let tfmsPerProject: Map<string, list<string>> =
+            tfmList
+            |> _.Split([| ' ' |], StringSplitOptions.RemoveEmptyEntries)
+            |> Array.map parseTfmList
+            |> Map.ofArray
 
-    props
-    |> Map.tryFind "TargetFramework"
-    |> should equal (expectedTfm |> Option.ofObj)
+        let props = Map.empty |> applyWorkspaceTargetFrameworkProp tfmsPerProject
 
-[<TestCase>]
-let testApplyWorkspaceTargetFrameworkPropWithEmptyMap () =
-    let props = Map.empty |> applyWorkspaceTargetFrameworkProp Map.empty
+        props
+        |> Map.tryFind "TargetFramework"
+        |> should equal (expectedTfm |> Option.ofObj)
 
-    props |> Map.tryFind "TargetFramework" |> should equal None
+    [<Test>]
+    member _.testApplyWorkspaceTargetFrameworkPropWithEmptyMap() =
+        let props = Map.empty |> applyWorkspaceTargetFrameworkProp Map.empty
+
+        props |> Map.tryFind "TargetFramework" |> should equal None

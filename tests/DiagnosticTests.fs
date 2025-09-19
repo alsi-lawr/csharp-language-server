@@ -1,4 +1,4 @@
-module CSharpLanguageServer.Tests
+namespace CSharpLanguageServer.Tests
 
 open System.Threading
 

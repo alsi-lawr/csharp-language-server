@@ -93,7 +93,7 @@ let makeServerProcessInfo projectTempDir =
         |> Path.GetDirectoryName
 
     let baseServerFileName =
-        Path.Combine(baseDir, "src", "CSharpLanguageServer", "bin", buildMode, tfm, "CSharpLanguageServer")
+        Path.Combine(baseDir, "src", "bin", buildMode, tfm, "CSharpLanguageServer")
 
     let serverFileName =
         match Environment.OSVersion.Platform with
@@ -465,7 +465,8 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
         return state
 
     | SendRpcMessage rpcMsg ->
-        let rpcMsgJson = (string rpcMsg)
+        let rpcMsgJson = string rpcMsg
+        let bytes = Encoding.UTF8.GetBytes rpcMsgJson
 
         match state.ServerProcess with
         | None ->
@@ -475,10 +476,10 @@ let processClientEvent (state: ClientState) (post: ClientEvent -> unit) msg : As
         | Some serverProcess ->
             let serverStdin = serverProcess.StandardInput
 
-            let formattedMessage =
-                String.Format("Content-Length: {0}\r\n\r\n{1}", rpcMsgJson.Length, rpcMsgJson)
+            let header = Encoding.ASCII.GetBytes($"Content-Length: {bytes.Length}\r\n\r\n")
 
-            serverStdin.Write(formattedMessage)
+            serverStdin.Write(header)
+            serverStdin.Write(bytes)
             serverStdin.Flush()
 
             let newRpcLog =
@@ -763,7 +764,7 @@ type ClientController(client: MailboxProcessor<ClientEvent>, testDataDir: Direct
         let _ =
             client.PostAndReply<Result<JToken, JToken>>(fun rc -> SendServerRpcRequest("shutdown", JObject(), Some rc))
 
-        client.Post(SendServerRpcRequest("exit", JObject(), None))
+        client.Post(SendServerRpcNotification("exit", JObject()))
 
     member __.Stop() =
         client.PostAndReply(fun rc -> ServerStopRequest rc)

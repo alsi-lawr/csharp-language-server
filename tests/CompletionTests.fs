@@ -11,7 +11,9 @@ type CompletionTests() =
 
     [<Test>]
     member _.testCompletionWorks() =
-        use client = setupServerClient defaultClientProfile "TestData/testCompletionWorks"
+        use client =
+            setupServerClient defaultClientProfile "TestData/testCompletionWorksForExtensionMethods"
+
         client.StartAndWaitForSolutionLoad()
 
         // resolve provider is necessary for lsp client to resolve
@@ -111,7 +113,7 @@ type CompletionTests() =
 
         let completionParams0: CompletionParams =
             { TextDocument = { Uri = classFile.Uri }
-              Position = { Line = 4u; Character = 13u }
+              Position = { Line = 12u; Character = 13u }
               WorkDoneToken = None
               PartialResultToken = None
               Context = None }
